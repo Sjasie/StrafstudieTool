@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strafstudie · Smartschool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+/* ── LOGIN OVERLAY ── */
+#loginOverlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #1a1814;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 0;
+}
+.login-box {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2.5rem 2.75rem;
+  width: 100%; max-width: 380px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+.login-logo {
+  font-size: 2.2rem; margin-bottom: 0.5rem;
+}
+.login-title {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 1.25rem; font-weight: 600;
+  color: #1a1814; margin-bottom: 0.25rem;
+}
+.login-subtitle {
+  font-size: 0.82rem; color: #7a7568; margin-bottom: 2rem;
+}
+.btn-ms {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.65rem; width: 100%;
+  padding: 0.75rem 1rem;
+  background: #0078d4; color: #ffffff;
+  border: none; border-radius: 6px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.92rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-ms:hover { background: #006cc1; }
+.btn-ms:disabled { background: #a0c4e8; cursor: not-allowed; }
+.ms-logo { width: 20px; height: 20px; flex-shrink: 0; }
+.login-error {
+  margin-top: 1rem; font-size: 0.78rem;
+  color: #c8381e; background: #fff0ee;
+  border-radius: 4px; padding: 0.5rem 0.75rem;
+  display: none;
+}
+.login-school {
+  margin-top: 1.5rem; font-size: 0.72rem; color: #a09a90;
+}
+
+/* ── USER PILL in sidebar ── */
+.user-pill {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  cursor: default;
+}
+.user-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #2E75B6; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 600; flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 0.78rem; font-weight: 500; color: #e8e4dc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-email { font-size: 0.65rem; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-logout {
+  background: none; border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.45); border-radius: 4px;
+  font-size: 0.65rem; padding: 0.2rem 0.4rem;
+  cursor: pointer; flex-shrink: 0;
+}
+.btn-logout:hover { border-color: #c8381e; color: #c8381e; }
+</style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #f5f3ee;
+  --bg2: #eceae3;
+  --surface: #ffffff;
+  --border: #d6d2c8;
+  --border2: #c4bfb3;
+  --text: #1a1814;
+  --muted: #7a7568;
+  --accent: #c8381e;
+  --accent2: #1e6bc8;
+  --accent3: #1e9c4a;
+  --warn: #c87a1e;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── LAYOUT ── */
+.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--text);
+  color: #e8e4dc;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 1.5rem 1.25rem 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.sidebar-logo .app-name {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+.sidebar-logo .school-name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+}
+
+.sidebar-nav { padding: 0.75rem 0; flex: 1; }
+.nav-section {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.3);
+  padding: 0.6rem 1.25rem 0.3rem;
+  text-transform: uppercase;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.25rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.6);
+  transition: all 0.12s;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
+.nav-item.active { color: #fff; border-left-color: var(--accent); background: rgba(200,56,30,0.1); }
+.nav-item .icon { font-size: 1rem; width: 18px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.nav-badge.warn { background: var(--warn); }
+.nav-badge.info { background: var(--accent2); }
+
+.sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.3);
+}
+.db-status { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
+.db-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); }
+.db-dot.empty { background: var(--warn); }
+
+/* ── MAIN ── */
+.main { display: flex; flex-direction: column; min-height: 100vh; }
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.page-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.page-subtitle { font-size: 0.75rem; color: var(--muted); margin-left: 0.5rem; }
+.topbar-right { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+
+.content { padding: 1.5rem 1.75rem; flex: 1; }
+
+/* ── PANELS ── */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── UPLOAD ZONE ── */
+.upload-card {
+  border: 2px dashed var(--border2);
+  border-radius: 8px;
+  padding: 2.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--surface);
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+.upload-card:hover, .upload-card.drag { border-color: var(--accent); background: #fff8f7; }
+.upload-card input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+.upload-text { font-size: 0.85rem; color: var(--muted); }
+.upload-text strong { color: var(--accent); }
+.upload-result {
+  margin-top: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--accent3);
+}
+
+/* ── CARDS / STATS ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+}
+.stat-label { font-size: 0.68rem; letter-spacing: 0.07em; color: var(--muted); text-transform: uppercase; margin-bottom: 0.35rem; font-family: var(--mono); }
+.stat-value { font-size: 1.8rem; font-weight: 600; line-height: 1; font-family: var(--mono); }
+.stat-value.red { color: var(--accent); }
+.stat-value.blue { color: var(--accent2); }
+.stat-value.green { color: var(--accent3); }
+.stat-value.warn { color: var(--warn); }
+.stat-sub { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+
+/* ── TABLES ── */
+.table-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.table-title { font-weight: 600; font-size: 0.9rem; }
+.table-count { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+
+.filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+input[type=text], select {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+input[type=text]:focus, select:focus { border-color: var(--accent2); }
+input[type=text] { min-width: 180px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+thead th {
+  background: var(--bg2);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+thead th:hover { color: var(--text); }
+thead th.sorted { color: var(--accent2); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.08s; }
+tbody tr:hover { background: var(--bg); }
+td { padding: 0.55rem 0.8rem; vertical-align: middle; }
+
+.name-cell { font-weight: 500; }
+.klas-tag {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  color: var(--muted);
+}
+
+.num-cell { text-align: center; font-family: var(--mono); font-weight: 600; }
+.num-red { color: var(--accent); }
+.num-warn { color: var(--warn); }
+.num-blue { color: var(--accent2); }
+.num-muted { color: var(--muted); }
+
+/* progress bar */
+.prog { height: 3px; background: var(--bg2); border-radius: 2px; margin-top: 2px; min-width: 40px; }
+.prog-fill { height: 100%; border-radius: 2px; }
+
+/* badges */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  gap: 0.3rem;
+}
+.badge-red { background: #fde8e5; color: var(--accent); border: 1px solid #f5c4be; }
+.badge-warn { background: #fdf2e5; color: var(--warn); border: 1px solid #f5dcbe; }
+.badge-blue { background: #e5edfb; color: var(--accent2); border: 1px solid #bed0f5; }
+.badge-green { background: #e5f5eb; color: var(--accent3); border: 1px solid #bce8cb; }
+.badge-gray { background: var(--bg2); color: var(--muted); border: 1px solid var(--border); }
+
+/* ── BUTTONS ── */
+.btn {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.45rem 0.9rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--border2); background: var(--bg2); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: #a82e18; border-color: #a82e18; }
+.btn-danger { background: #fde8e5; color: var(--accent); border-color: #f5c4be; }
+.btn-danger:hover { background: #fbd3ce; }
+.btn-sm { font-size: 0.72rem; padding: 0.3rem 0.6rem; }
+
+/* ── NABLIJVEN DAY VIEW ── */
+.day-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.day-header input[type=date] {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+.day-header input[type=date]:focus { border-color: var(--accent2); }
+.day-label { font-weight: 600; font-size: 0.9rem; }
+.day-sub { font-size: 0.75rem; color: var(--muted); }
+
+.nablijven-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.nablijven-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.nablijven-card-body { padding: 0.75rem 1rem; }
+.nablijven-name { font-weight: 600; font-size: 0.95rem; }
+.nablijven-meta { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); }
+.nablijven-stats { display: flex; gap: 1rem; margin-top: 0.3rem; font-size: 0.75rem; }
+.nablijven-reason { color: var(--muted); font-size: 0.78rem; margin-bottom: 0.5rem; }
+.verwerkt-row { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); margin-top: 0.5rem; font-size: 0.8rem; }
+
+/* ── SETTINGS ── */
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.setting-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; }
+.setting-card h3 { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--mono); }
+.setting-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.setting-row:last-child { margin-bottom: 0; }
+.setting-label { font-size: 0.82rem; }
+.setting-row input[type=number], .setting-row input[type=date] {
+  width: 120px; font-family: var(--mono); font-size: 0.82rem;
+  padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg); color: var(--text); text-align: right;
+}
+
+/* ── EMPTY STATES ── */
+.empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+.empty .e-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.empty p { font-size: 0.85rem; max-width: 300px; margin: 0 auto; }
+
+/* ── TOAST ── */
+.toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
+.toast {
+  background: var(--text);
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  font-family: var(--mono);
+  animation: fadeInUp 0.2s ease;
+  max-width: 320px;
+}
+.toast.success { background: var(--accent3); }
+.toast.error { background: var(--accent); }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── DANGER ZONE ── */
+.danger-zone { border: 1px solid #f5c4be; border-radius: 8px; padding: 1rem 1.25rem; background: #fff8f7; }
+.danger-zone h3 { color: var(--accent); font-size: 0.8rem; margin-bottom: 0.5rem; }
+.danger-zone p { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.75rem; }
+
+/* ── RESPONSIVE ── */
+@media(max-width: 700px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { height: auto; position: relative; }
+}
+
+.section-sep { height: 1px; background: var(--border); margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">🏫</div>
+    <div class="login-title">Strafstudie Tool</div>
+    <div class="login-subtitle">Meld aan met je schoolaccount</div>
+    <button class="btn-ms" id="btnLogin" onclick="msLogin()">
+      <svg class="ms-logo" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Aanmelden met Microsoft
+    </button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-school">Enkel toegankelijk voor bevoegde medewerkers</div>
+  </div>
+</div>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="app-name">Smartschool Export</div>
+    <div class="school-name">Strafstudie Tool</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">Weergave</div>
+    <div class="nav-item active" onclick="showPanel('vandaag')">
+      <span class="icon">📅</span> Vandaag
+      <span class="nav-badge warn" id="badge-vandaag">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('overzicht')">
+      <span class="icon">📋</span> Overzicht
+      <span class="nav-badge" id="badge-overzicht">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('telaat')">
+      <span class="icon">🕐</span> Te laat
+      <span class="nav-badge info" id="badge-telaat">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('gedrag')">
+      <span class="icon">⚠️</span> Gedrag
+      <span class="nav-badge" id="badge-gedrag">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('materiaal')">
+      <span class="icon">📚</span> Materiaal
+      <span class="nav-badge" id="badge-materiaal">0</span>
+    </div>
+
+    <div class="nav-section">Beheer</div>
+    <div class="nav-item" onclick="showPanel('verwerking')">
+      <span class="icon">✅</span> Verwerking
+      <span class="nav-badge warn" id="badge-verwerking">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('import')">
+      <span class="icon">⬆</span> Import
+    </div>
+    <div class="nav-item" onclick="showPanel('instellingen')">
+      <span class="icon">⚙</span> Instellingen
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="db-status">
+      <div class="db-dot" id="dbDot"></div>
+      <span id="dbStatusText">Database laden...</span>
+    </div>
+    <div id="dbRecordCount" style="font-size:0.65rem;opacity:0.5;"></div>
+  </div>
+  <div class="user-pill" id="userPill" style="display:none">
+    <div class="user-avatar" id="userAvatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="userName">—</div>
+      <div class="user-email" id="userEmail">—</div>
+    </div>
+    <button class="btn-logout" onclick="msLogout()">↩</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="page-title" id="pageTitle">Vandaag</span>
+    <span class="page-subtitle" id="pageSubtitle"></span>
+    <div class="topbar-right" id="topbarRight"></div>
+  </div>
+
+  <div class="content">
+
+    <!-- VANDAAG -->
+    <div class="panel active" id="panel-vandaag">
+      <div class="day-header">
+        <div>
+          <div class="day-label">Nablijven vandaag</div>
+          <div class="day-sub">Leerlingen met te laat-nota op geselecteerde dag</div>
+        </div>
+        <input type="date" id="dayPicker" onchange="renderVandaag()">
+        <button class="btn btn-sm" onclick="document.getElementById('dayPicker').value=todayStr(); renderVandaag()">Vandaag</button>
+        <button class="btn btn-sm" onclick="exportNablijvenDay()">↓ Exporteer lijst</button>
+      </div>
+      <div id="vandaagContent"></div>
+    </div>
+
+    <!-- OVERZICHT -->
+    <div class="panel" id="panel-overzicht">
+      <div class="stats-row" id="statsRowOverzicht"></div>
+      <div class="filters">
+        <input type="text" id="searchOverzicht" placeholder="Zoek leerling..." oninput="renderOverzicht()">
+        <select id="klasOverzicht" onchange="renderOverzicht()"><option value="">Alle klassen</option></select>
+        <select id="statusOverzicht" onchange="renderOverzicht()">
+          <option value="">Alle statussen</option>
+          <option value="strafstudie">Strafstudie</option>
+          <option value="bijna">Bijna</option>
+          <option value="ok">Geen actie</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportOverzicht()">↓ Export CSV</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="overzichtSort('naam')">NAAM</th>
+              <th onclick="overzichtSort('klas')">KLAS</th>
+              <th onclick="overzichtSort('materiaal')" style="text-align:center">MATERIAAL<br><span style="font-weight:400;opacity:0.6">huidig trim</span></th>
+              <th onclick="overzichtSort('gedrag')" style="text-align:center">GEDRAG<br><span style="font-weight:400;opacity:0.6">elke nota=2u</span></th>
+              <th onclick="overzichtSort('telaat')" style="text-align:center">TE LAAT<br><span style="font-weight:400;opacity:0.6">4=1u·8=2u·9+=nablijven</span></th>
+              <th onclick="overzichtSort('status')">STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyOverzicht"></tbody>
+        </table>
+      </div>
+      <div id="emptyOverzicht" class="empty" style="display:none">
+        <div class="e-icon">🔍</div><p>Geen leerlingen gevonden.</p>
+      </div>
+    </div>
+
+    <!-- TE LAAT -->
+    <div class="panel" id="panel-telaat">
+      <div class="stats-row" id="statsRowTeLaat"></div>
+      <div class="filters">
+        <input type="text" id="searchTeLaat" placeholder="Zoek leerling..." oninput="renderTeLaat()">
+        <select id="klasTeLaat" onchange="renderTeLaat()"><option value="">Alle klassen</option></select>
+        <select id="nablijvenFilter" onchange="renderTeLaat()">
+          <option value="">Alle</option>
+          <option value="nablijven">Nablijven actief</option>
+          <option value="open">Openstaand (niet verwerkt)</option>
+          <option value="verwerkt">Volledig verwerkt</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="teLaatSort('naam')">NAAM</th>
+              <th onclick="teLaatSort('klas')">KLAS</th>
+              <th onclick="teLaatSort('telaat')" style="text-align:center">TOTAAL TE LAAT</th>
+              <th style="text-align:center">SANCTIE</th>
+              <th style="text-align:center">DAG ZELF NABLIJVEN</th>
+              <th style="text-align:center">VERWERKT</th>
+              <th style="text-align:center">OPEN</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyTeLaat"></tbody>
+        </table>
+      </div>
+      <div id="emptyTeLaat" class="empty" style="display:none">
+        <div class="e-icon">🎉</div><p>Geen te laat-notities gevonden.</p>
+      </div>
+    </div>
+
+    <!-- IMPORT -->
+    <div class="panel" id="panel-import">
+      <div class="upload-card" id="uploadZone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text">Sleep je <strong>Smartschool Excel export</strong> hier naartoe</div>
+        <div style="margin:0.75rem 0 0.25rem"><button class="btn btn-primary" type="button" onclick="document.getElementById('fileInput').click()">Bestand kiezen…</button></div>
+        <div class="upload-text" style="margin-top:0.5rem;font-size:0.72rem;color:var(--muted)">Nieuwe rijen worden bijgevoegd · Duplicaten worden automatisch overgeslagen</div>
+        <div class="upload-result" id="uploadResult" style="margin-top:0.75rem;font-size:0.78rem;font-family:var(--mono)"></div>
+      </div>
+      <div id="importHistory"></div>
+    </div>
+
+    <!-- INSTELLINGEN -->
+    <div class="panel" id="panel-instellingen">
+      <div class="settings-grid">
+        <div class="setting-card">
+          <h3>Regels (vast)</h3>
+          <div class="setting-row"><span class="setting-label">Gedrag</span><span style="font-size:0.8rem;color:var(--muted)">Elke nota = 2u strafstudie</span></div>
+          <div class="setting-row"><span class="setting-label">Te laat</span><span style="font-size:0.8rem;color:var(--muted)">4=1u · 8=2u · 9+=nablijven</span></div>
+          <div class="setting-row"><span class="setting-label">Materiaal</span><span style="font-size:0.8rem;color:var(--muted)">4=1u · 8=2u (per trim)</span></div>
+        </div>
+        <div class="setting-card">
+          <h3>Schooljaar</h3>
+          <div class="setting-row"><span class="setting-label">Start schooljaar</span><input type="date" id="cfgStart" value="2025-09-01" onchange="saveSettings()"></div>
+          <div class="setting-row"><span class="setting-label">Start trimester 2</span><input type="date" id="cfgTrim2" value="2026-01-01" onchange="saveSettings()"></div>
+          <div class="setting-row"><span class="setting-label">Start trimester 3</span><input type="date" id="cfgTrim3" value="2026-04-01" onchange="saveSettings()"></div>
+        </div>
+      </div>
+
+      <div class="section-sep"></div>
+      <div class="danger-zone">
+        <h3>⚠ Database wissen</h3>
+        <p>Dit verwijdert alle geïmporteerde nota's en verwerkt-markeringen permanent.</p>
+        <button class="btn btn-danger" onclick="confirmClearDB()">Database volledig wissen</button>
+      </div>
+    </div>
+
+
+    <!-- GEDRAG -->
+    <div class="panel" id="panel-gedrag">
+      <div class="stats-row" id="statsRowGedrag"></div>
+      <div class="filters">
+        <input type="text" id="searchGedrag" placeholder="Zoek leerling..." oninput="renderGedrag()">
+        <select id="klasGedrag" onchange="renderGedrag()"><option value="">Alle klassen</option></select>
+        <select id="vakGedrag" onchange="renderGedrag()"><option value="">Alle vakken</option></select>
+        <select id="statusGedrag" onchange="renderGedrag()">
+          <option value="">Alle</option>
+          <option value="studie">Met strafstudie</option>
+          <option value="ok">Geen nota's</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportGedrag()">↓ Export CSV</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="gedragSort('naam')">NAAM</th>
+              <th onclick="gedragSort('klas')">KLAS</th>
+              <th onclick="gedragSort('count')" style="text-align:center">GEDRAG NOTA'S</th>
+              <th onclick="gedragSort('studies')" style="text-align:center">UREN STRAFSTUDIE</th>
+              <th>LAATSTE NOTA</th>
+              <th onclick="gedragSort('status')">SANCTIE</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyGedrag"></tbody>
+        </table>
+      </div>
+      <div id="emptyGedrag" class="empty" style="display:none">
+        <div class="e-icon">🎉</div><p>Geen gedragsnota's gevonden.</p>
+      </div>
+    </div>
+
+    <!-- MATERIAAL -->
+    <div class="panel" id="panel-materiaal">
+      <div class="stats-row" id="statsRowMateriaal"></div>
+      <div class="filters">
+        <input type="text" id="searchMateriaal" placeholder="Zoek leerling..." oninput="renderMateriaal()">
+        <select id="klasMateriaal" onchange="renderMateriaal()"><option value="">Alle klassen</option></select>
+        <select id="subtypeMateriaal" onchange="renderMateriaal()"><option value="">Alle types</option></select>
+        <select id="halvejaarMateriaal" onchange="renderMateriaal()">
+          <option value="current">Huidig trimester</option>
+          <option value="trim1">Trimester 1 (sep)</option>
+          <option value="trim2">Trimester 2 (jan)</option>
+          <option value="trim3">Trimester 3 (apr)</option>
+        </select>
+        <select id="statusMateriaal" onchange="renderMateriaal()">
+          <option value="">Alle</option>
+          <option value="studie">Studie verdiend</option>
+          <option value="bijna">Bijna (nog 1)</option>
+          <option value="ok">Geen actie</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportMateriaal()">↓ Export CSV</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="materiaalSort('naam')">NAAM</th>
+              <th onclick="materiaalSort('klas')">KLAS</th>
+              <th onclick="materiaalSort('count')" style="text-align:center">NOTA'S (GESELECTEERD)</th>
+              <th style="text-align:center">TRIM 1 / 2 / 3</th>
+              <th onclick="materiaalSort('all')" style="text-align:center">TOTAAL JAAR</th>
+              <th>MEEST VOORKOMEND TYPE</th>
+              <th onclick="materiaalSort('status')">SANCTIE</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMateriaal"></tbody>
+        </table>
+      </div>
+      <div id="emptyMateriaal" class="empty" style="display:none">
+        <div class="e-icon">🎉</div><p>Geen materiaalnotas gevonden.</p>
+      </div>
+    </div>
+
+    <!-- VERWERKING -->
+    <div class="panel" id="panel-verwerking">
+      <div class="stats-row" id="statsRowVerwerking"></div>
+      <div class="filters">
+        <input type="text" id="searchVerwerking" placeholder="Zoek leerling..." oninput="renderVerwerking()">
+        <select id="klasVerwerking" onchange="renderVerwerking()"><option value="">Alle klassen</option></select>
+        <select id="statusVerwerking" onchange="renderVerwerking()">
+          <option value="open">Openstaand</option>
+          <option value="">Alles</option>
+          <option value="klaar">Volledig verwerkt</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportVerwerking()">↓ Export CSV</button>
+      </div>
+      <div id="verwerkingContent"></div>
+      <div id="emptyVerwerking" class="empty" style="display:none">
+        <div class="e-icon">🎉</div><p>Geen openstaande sancties gevonden.</p>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ════════════════════════════════════════════════
+// MICROSOFT AUTH (MSAL)
+// ════════════════════════════════════════════════
+const MSAL_CONFIG = {
+  auth: {
+    clientId: '4337a473-983b-4961-a0b5-4607b4fefaf5',
+    authority: 'https://login.microsoftonline.com/4ecad465-3cfc-4637-ba08-35e401e67e5d',
+    redirectUri: window.location.href.split('?')[0].split('#')[0],
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+};
+
+let msalInstance = null;
+let currentUser = null;
+
+function getMsal() {
+  if (!msalInstance) {
+    if (typeof msal === 'undefined') throw new Error('MSAL library niet geladen. Controleer je internetverbinding.');
+    msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+  }
+  return msalInstance;
+}  // { name, email, initials }
+
+async function initAuth() {
+  const instance = getMsal();
+  try {
+    const resp = await instance.handleRedirectPromise();
+    if (resp) { setUser(resp.account); return true; }
+  } catch (e) {
+    showLoginError('Aanmelding mislukt: ' + (e.message || e));
+    return false;
+  }
+  const accounts = instance.getAllAccounts();
+  if (accounts.length > 0) { setUser(accounts[0]); return true; }
+  return false;
+}
+
+function setUser(account) {
+  const name  = account.name || account.username;
+  const email = account.username;
+  const initials = name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
+  currentUser = { name, email, initials, account };
+
+  // Hide overlay, show app
+  document.getElementById('loginOverlay').style.display = 'none';
+
+  // Fill user pill
+  document.getElementById('userAvatar').textContent = initials;
+  document.getElementById('userName').textContent = name;
+  document.getElementById('userEmail').textContent = email;
+  document.getElementById('userPill').style.display = 'flex';
+}
+
+async function msLogin() {
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true;
+  btn.textContent = 'Aanmelden...';
+  hideLoginError();
+  try {
+    const instance = getMsal();
+    try {
+      const resp = await instance.loginPopup({ scopes: ['User.Read'] });
+      setUser(resp.account);
+      await init();
+    } catch (popupErr) {
+      if (popupErr.errorCode === 'popup_window_error' || popupErr.errorCode === 'empty_window_error') {
+        await instance.loginRedirect({ scopes: ['User.Read'] });
+      } else {
+        throw popupErr;
+      }
+    }
+  } catch (e) {
+    showLoginError('Aanmelding mislukt. Controleer of je een bevoegde medewerker bent. (' + (e.message || e) + ')');
+    btn.disabled = false;
+    btn.innerHTML = `<svg class="ms-logo" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg> Aanmelden met Microsoft`;
+  }
+}
+
+function msLogout() {
+  const instance = getMsal();
+  instance.logoutPopup({ account: currentUser?.account }).catch(() => {
+    instance.logoutRedirect({ account: currentUser?.account });
+  });
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg; el.style.display = 'block';
+}
+function hideLoginError() {
+  document.getElementById('loginError').style.display = 'none';
+}
+
+// ════════════════════════════════════════════════
+// DATABASE (IndexedDB)
+// ════════════════════════════════════════════════
+const DB_NAME = 'StrafstudieTool';
+const DB_VERSION = 3;
+let db;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('notas')) {
+        const s = d.createObjectStore('notas', { keyPath: 'id' });
+        s.createIndex('type', 'type');
+        s.createIndex('naam', 'naam');
+        s.createIndex('datum', 'datum');
+      }
+      if (!d.objectStoreNames.contains('nablijven')) {
+        const n = d.createObjectStore('nablijven', { keyPath: 'id' });
+        n.createIndex('naam', 'naam');
+      }
+      if (!d.objectStoreNames.contains('settings')) {
+        d.createObjectStore('settings', { keyPath: 'key' });
+      }
+      // Verwerking van sancties — id = naam||sanctieType
+      if (!d.objectStoreNames.contains('verwerkingen')) {
+        const v = d.createObjectStore('verwerkingen', { keyPath: 'id' });
+        v.createIndex('naam', 'naam');
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = e => rej(e);
+  });
+}
+
+function dbAll(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = rej;
+  });
+}
+
+function dbPut(store, obj) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(obj);
+    req.onsuccess = () => res(req.result);
+    req.onerror = rej;
+  });
+}
+
+function dbGet(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = rej;
+  });
+}
+
+function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror = rej;
+  });
+}
+
+function dbClear(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).clear();
+    req.onsuccess = () => res();
+    req.onerror = rej;
+  });
+}
+
+// ════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════
+// Regels:
+// GEDRAG:    elke nota = 2u strafstudie (geen drempel)
+// TE LAAT:   4 nota's = 1u leerstudie, 8 nota's = 2u leerstudie, vanaf 9e = dag zelf nablijven
+// MATERIAAL: 4e nota per trimester = 1u leerstudie, 8e nota per trimester = 2u leerstudie
+//            Reset per trimester: sep / jan / apr
+let cfg = {
+  start: '2025-09-01',  // start schooljaar
+  trim2: '2026-01-01',  // start trimester 2
+  trim3: '2026-04-01',  // start trimester 3
+};
+
+function getTrimester(datum) {
+  if (datum >= cfg.trim3) return 3;
+  if (datum >= cfg.trim2) return 2;
+  return 1;
+}
+
+function getCurrentTrimester() {
+  return getTrimester(todayStr());
+}
+
+async function loadSettings() {
+  const stored = await dbGet('settings', 'cfg');
+  if (stored) cfg = { ...cfg, ...stored.value };
+  document.getElementById('cfgStart').value = cfg.start;
+  document.getElementById('cfgTrim2').value = cfg.trim2;
+  document.getElementById('cfgTrim3').value = cfg.trim3;
+}
+
+async function saveSettings() {
+  cfg.start = document.getElementById('cfgStart').value;
+  cfg.trim2 = document.getElementById('cfgTrim2').value;
+  cfg.trim3 = document.getElementById('cfgTrim3').value;
+  await dbPut('settings', { key: 'cfg', value: cfg });
+  refreshAll();
+  toast('Instellingen opgeslagen', 'success');
+}
+
+// ════════════════════════════════════════════════
+// IMPORT EXCEL
+// ════════════════════════════════════════════════
+function initUploadListeners() {
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  if (!uploadZone || !fileInput) return;
+
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+  uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+}
+
+function parseDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  // Try direct parse first
+  let d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0, 10);
+  // Try dd/mm/yyyy
+  const parts = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (parts) { d = new Date(`${parts[3]}-${parts[2].padStart(2,'0')}-${parts[1].padStart(2,'0')}`); }
+  return isNaN(d) ? null : d.toISOString().slice(0, 10);
+}
+
+// Find a sheet by trying name variants (exact, lowercase, trimmed)
+function findSheet(wb, candidates) {
+  for (const name of candidates) {
+    if (wb.Sheets[name]) return wb.Sheets[name];
+    const found = Object.keys(wb.Sheets).find(k => k.toLowerCase().trim() === name.toLowerCase().trim());
+    if (found) return wb.Sheets[found];
+  }
+  return null;
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  const res = document.getElementById('uploadResult');
+  res.textContent = '⏳ Bezig met verwerken...';
+  res.style.color = 'var(--muted)';
+
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+
+    const foundSheets = Object.keys(wb.Sheets);
+    res.textContent = `📄 Gevonden tabbladen: ${foundSheets.join(', ')} — importeren...`;
+
+    let added = 0, skipped = 0, errors = 0;
+
+    async function importSheet(candidates, type, makeId, makeObj) {
+      const sheet = findSheet(wb, candidates);
+      if (!sheet) {
+        toast(`Tabblad '${candidates[0]}' niet gevonden — overgeslagen`, 'error');
+        return;
+      }
+      let rows;
+      try {
+        rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+      } catch(e) {
+        toast(`Fout bij lezen '${candidates[0]}': ${e.message}`, 'error');
+        return;
+      }
+      for (const r of rows) {
+        try {
+          const id = makeId(r);
+          if (!id) continue;
+          const existing = await dbGet('notas', id);
+          if (existing) { skipped++; continue; }
+          await dbPut('notas', makeObj(r, id, type));
+          added++;
+        } catch(e) { errors++; }
+      }
+    }
+
+    await importSheet(['materiaal', 'Materiaal', 'material'], 'materiaal',
+      r => {
+        const datum = parseDate(r['datum nota'] || r['Datum']);
+        if (!datum || !r['Naam']) return null;
+        return `M||${r['Naam']}||${datum}||${(r['Titel']||'').slice(0,80)}`;
+      },
+      (r, id, type) => ({
+        id, type,
+        naam: r['Naam'], klas: r['Klas'] || '',
+        datum: parseDate(r['datum nota'] || r['Datum']),
+        titel: r['Titel'] || '',
+        vak: r['vak'] || '',
+        subtype: r['type materiaal'] || '',
+        omschrijving: (r['omschrijving nota materiaal'] || '').slice(0, 200),
+      })
+    );
+
+    await importSheet(['gedrag', 'Gedrag', 'behaviour'], 'gedrag',
+      r => {
+        const datum = parseDate(r['datum nota'] || r['Datum']);
+        if (!datum || !r['Naam']) return null;
+        return `G||${r['Naam']}||${datum}||${(r['Titel']||'').slice(0,80)}`;
+      },
+      (r, id, type) => ({
+        id, type,
+        naam: r['Naam'], klas: r['Klas'] || '',
+        datum: parseDate(r['datum nota'] || r['Datum']),
+        titel: r['Titel'] || '',
+        vak: r['vak'] || '',
+        subtype: '',
+        omschrijving: (r['omschrijving nota gedrag'] || '').slice(0, 200),
+      })
+    );
+
+    await importSheet(['te laat', 'Te laat', 'telaat', 'Te Laat'], 'telaat',
+      r => {
+        const datum = parseDate(r['datum nota'] || r['Datum']);
+        if (!datum || !r['Naam']) return null;
+        return `T||${r['Naam']}||${datum}||${(r['lesuur']||r['Titel']||'').slice(0,40)}`;
+      },
+      (r, id, type) => ({
+        id, type,
+        naam: r['Naam'], klas: r['Klas'] || '',
+        datum: parseDate(r['datum nota'] || r['Datum']),
+        titel: r['Titel'] || '',
+        vak: '',
+        subtype: r['lesuur'] || '',
+        omschrijving: r['aankomst onthaal'] || '',
+      })
+    );
+
+    const errMsg = errors > 0 ? ` · ${errors} fouten` : '';
+    res.textContent = `✓ ${added} nieuwe nota's toegevoegd · ${skipped} al aanwezig (overgeslagen)${errMsg}`;
+    res.style.color = 'var(--accent3)';
+    toast(`Import klaar: ${added} nieuw, ${skipped} overgeslagen`, 'success');
+
+    // Reset file input so same file can be re-uploaded if needed
+    document.getElementById('fileInput').value = '';
+
+    updateDBStatus();
+    refreshAll();
+
+  } catch(err) {
+    res.textContent = `❌ Fout: ${err.message}`;
+    res.style.color = 'var(--accent)';
+    toast('Import mislukt: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// ════════════════════════════════════════════════
+// COMPUTE per student
+// ════════════════════════════════════════════════
+let allNotas = [];
+let allNablijven = [];
+let allVerwerkingen = [];
+let computed = [];
+
+async function loadAllData() {
+  allNotas = await dbAll('notas');
+  allNablijven = await dbAll('nablijven');
+  try { allVerwerkingen = await dbAll('verwerkingen'); } catch(e) { allVerwerkingen = []; }
+  recompute();
+}
+
+function recompute() {
+  const startDate = cfg.start;
+  const today = todayStr();
+  const currTrim = getCurrentTrimester();
+
+  const studentMap = {};
+  function get(naam, klas) {
+    const key = `${naam}||${klas}`;
+    if (!studentMap[key]) studentMap[key] = { naam, klas, mRows: [], gRows: [], tRows: [] };
+    return studentMap[key];
+  }
+
+  for (const n of allNotas) {
+    if (!n.datum || n.datum < startDate) continue;
+    if (n.type === 'materiaal') get(n.naam, n.klas).mRows.push(n);
+    else if (n.type === 'gedrag') get(n.naam, n.klas).gRows.push(n);
+    else if (n.type === 'telaat') get(n.naam, n.klas).tRows.push(n);
+  }
+
+  const nabMap = {};
+  for (const nb of allNablijven) nabMap[nb.id] = nb;
+
+  const verwMap = {};
+  for (const v of (allVerwerkingen || [])) verwMap[v.id] = v;
+
+  computed = Object.values(studentMap).map(s => {
+    // ── MATERIAAL: telt per trimester, reset sep/jan/apr ──
+    const mAll = s.mRows.length;
+    const mTrim1 = s.mRows.filter(r => getTrimester(r.datum) === 1).length;
+    const mTrim2 = s.mRows.filter(r => getTrimester(r.datum) === 2).length;
+    const mTrim3 = s.mRows.filter(r => getTrimester(r.datum) === 3).length;
+    const mCurr = currTrim === 1 ? mTrim1 : currTrim === 2 ? mTrim2 : mTrim3;
+    const mStudies1 = Math.floor(mTrim1 / 4);
+    const mStudies2 = Math.floor(mTrim2 / 4);
+    const mStudies3 = Math.floor(mTrim3 / 4);
+    const mStudies = mStudies1 + mStudies2 + mStudies3;
+    const mStudiesCurr = currTrim === 1 ? mStudies1 : currTrim === 2 ? mStudies2 : mStudies3;
+    const mSanctie = mCurr >= 8 ? '2u leerstudie' : mCurr >= 4 ? '1u leerstudie' : '';
+
+    // ── GEDRAG: elke nota = 2u strafstudie ──
+    const gCount = s.gRows.length;
+    const gStudies = gCount;
+    const gUren = gCount * 2;
+
+    // ── TE LAAT: 4 = 1u, 8 = 2u, vanaf 9e = dag zelf nablijven ──
+    const tSorted = [...s.tRows].sort((a, b) => a.datum.localeCompare(b.datum));
+    const tCount = tSorted.length;
+    const tSanctie = tCount >= 8 ? '2u leerstudie' : tCount >= 4 ? '1u leerstudie' : '';
+    const tStudies = tCount >= 8 ? 2 : tCount >= 4 ? 1 : 0;
+
+    const nablijvenRows = tSorted.slice(8);
+    const nablijvenDates = nablijvenRows.map(r => r.datum);
+    const heeftNablijven = tCount >= 9;
+    const verwerktCount = nablijvenDates.filter(d => nabMap[`${s.naam}||${d}`]?.verwerkt).length;
+    const openCount = nablijvenDates.filter(d => !nabMap[`${s.naam}||${d}`]?.verwerkt).length;
+
+    // ── STATUS ──
+    const heeftActie = gCount > 0 || tCount >= 4 || mCurr >= 4;
+    const bijna = !heeftActie && (mCurr === 3 || tCount === 3);
+    let status = 'ok';
+    if (bijna) status = 'bijna';
+    if (heeftActie) status = 'strafstudie';
+
+    // ── SANCTIES voor verwerking ──
+    const sancties = [];
+
+    s.gRows.forEach((r, i) => {
+      const key = `${s.naam}||gedrag_${r.id || i}`;
+      sancties.push({ key, label: `Gedrag: 2u strafstudie (${formatDate(r.datum)} · ${r.vak || r.titel || 'onbekend'})`, type: 'gedrag', datum: r.datum, verwerkt: verwMap[key]?.verwerkt || false, datumVerwerkt: verwMap[key]?.datumVerwerkt || '', door: verwMap[key]?.door || '' });
+    });
+    if (tCount >= 4) {
+      const key = `${s.naam}||telaat_1u`;
+      sancties.push({ key, label: 'Te laat: 1u leerstudie (vanaf 4e te laat)', type: 'telaat', datum: tSorted[3]?.datum || '', verwerkt: verwMap[key]?.verwerkt || false, datumVerwerkt: verwMap[key]?.datumVerwerkt || '', door: verwMap[key]?.door || '' });
+    }
+    if (tCount >= 8) {
+      const key = `${s.naam}||telaat_2u`;
+      sancties.push({ key, label: 'Te laat: 2u leerstudie (vanaf 8e te laat)', type: 'telaat', datum: tSorted[7]?.datum || '', verwerkt: verwMap[key]?.verwerkt || false, datumVerwerkt: verwMap[key]?.datumVerwerkt || '', door: verwMap[key]?.door || '' });
+    }
+    nablijvenDates.forEach(d => {
+      const key = `${s.naam}||nablijven_${d}`;
+      sancties.push({ key, label: `Te laat: dag zelf nablijven (${formatDate(d)})`, type: 'nablijven', datum: d, verwerkt: nabMap[`${s.naam}||${d}`]?.verwerkt || verwMap[key]?.verwerkt || false, datumVerwerkt: verwMap[key]?.datumVerwerkt || '', door: verwMap[key]?.door || '' });
+    });
+    [[1, s.mTrim1, 'sep'], [2, s.mTrim2, 'jan'], [3, s.mTrim3, 'apr']].forEach(([trim, cnt, maand]) => {
+      if (cnt >= 4) {
+        const key = `${s.naam}||mat_${trim}_1u`;
+        sancties.push({ key, label: `Materiaal trim ${trim}: 1u leerstudie (4e nota, reset ${maand})`, type: 'materiaal', datum: '', verwerkt: verwMap[key]?.verwerkt || false, datumVerwerkt: verwMap[key]?.datumVerwerkt || '', door: verwMap[key]?.door || '' });
+      }
+      if (cnt >= 8) {
+        const key = `${s.naam}||mat_${trim}_2u`;
+        sancties.push({ key, label: `Materiaal trim ${trim}: 2u leerstudie (8e nota, reset ${maand})`, type: 'materiaal', datum: '', verwerkt: verwMap[key]?.verwerkt || false, datumVerwerkt: verwMap[key]?.datumVerwerkt || '', door: verwMap[key]?.door || '' });
+      }
+    });
+
+    const sanctiesOpen = sancties.filter(x => !x.verwerkt).length;
+    const sanctiesKlaar = sancties.filter(x => x.verwerkt).length;
+
+    return {
+      naam: s.naam, klas: s.klas,
+      mAll, mCurr, mTrim1, mTrim2, mTrim3,
+      mStudies, mStudiesCurr, mSanctie,
+      gCount, gStudies, gUren,
+      tCount, tSanctie, tStudies,
+      heeftNablijven, nablijvenDates, verwerktCount, openCount,
+      status, bijna, tRows: tSorted,
+      sancties, sanctiesOpen, sanctiesKlaar,
+    };
+  });
+
+  updateBadges();
+}
+
+function updateBadges() {
+  const vandaag = getTodayNablijvenList();
+  document.getElementById('badge-vandaag').textContent = vandaag.length;
+  document.getElementById('badge-vandaag').className = 'nav-badge ' + (vandaag.length > 0 ? 'warn' : '');
+
+  const metActie = computed.filter(s => s.status === 'strafstudie').length;
+  document.getElementById('badge-overzicht').textContent = metActie;
+  document.getElementById('badge-overzicht').className = 'nav-badge' + (metActie > 0 ? ' warn' : '');
+
+  const telaat = computed.filter(s => s.heeftNablijven).length;
+  document.getElementById('badge-telaat').textContent = computed.filter(s => s.tCount >= 4).length;
+  document.getElementById('badge-telaat').className = 'nav-badge info';
+
+  const gedrag = computed.filter(s => s.gCount > 0).length;
+  document.getElementById('badge-gedrag').textContent = gedrag;
+  document.getElementById('badge-gedrag').className = 'nav-badge' + (gedrag > 0 ? ' warn' : '');
+
+  const mat = computed.filter(s => s.mCurr >= 4).length;
+  document.getElementById('badge-materiaal').textContent = mat;
+  document.getElementById('badge-materiaal').className = 'nav-badge' + (mat > 0 ? ' warn' : '');
+
+  const openSancties = computed.reduce((acc, s) => acc + (s.sanctiesOpen || 0), 0);
+  const elBadge = document.getElementById('badge-verwerking');
+  if (elBadge) { elBadge.textContent = openSancties; elBadge.className = 'nav-badge' + (openSancties > 0 ? ' warn' : ''); }
+}
+
+// ════════════════════════════════════════════════
+// VERWERKING PANEL
+// ════════════════════════════════════════════════
+async function toggleSanctieVerwerkt(key, naam, isVerwerkt, datumVerwerkt) {
+  const door = currentUser?.email || 'onbekend';
+  if (isVerwerkt) {
+    await dbPut('verwerkingen', { id: key, naam, verwerkt: true, datumVerwerkt, door, timestamp: new Date().toISOString() });
+    toast('Sanctie gemarkeerd als verwerkt (' + door + ')', 'success');
+  } else {
+    await dbDelete('verwerkingen', key);
+    toast('Sanctie teruggezet naar openstaand');
+  }
+  allVerwerkingen = await dbAll('verwerkingen');
+  recompute();
+  renderVerwerking();
+}
+
+function renderVerwerking() {
+  const search = (document.getElementById('searchVerwerking')?.value || '').toLowerCase();
+  const klas = document.getElementById('klasVerwerking')?.value || '';
+  const statusF = document.getElementById('statusVerwerking')?.value || 'open';
+
+  let data = computed.filter(s => s.sancties && s.sancties.length > 0).filter(s => {
+    if (search && !s.naam.toLowerCase().includes(search) && !s.klas.toLowerCase().includes(search)) return false;
+    if (klas && s.klas !== klas) return false;
+    if (statusF === 'open' && s.sanctiesOpen === 0) return false;
+    if (statusF === 'klaar' && s.sanctiesKlaar === 0) return false;
+    return true;
+  });
+
+  data.sort((a, b) => b.sanctiesOpen - a.sanctiesOpen || a.naam.localeCompare(b.naam));
+
+  const totaalOpen = computed.reduce((acc, s) => acc + (s.sanctiesOpen || 0), 0);
+  const totaalKlaar = computed.reduce((acc, s) => acc + (s.sanctiesKlaar || 0), 0);
+  const leerlingenOpen = computed.filter(s => (s.sanctiesOpen || 0) > 0).length;
+  document.getElementById('statsRowVerwerking').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Leerlingen openstaand</div><div class="stat-value red">${leerlingenOpen}</div></div>
+    <div class="stat-card"><div class="stat-label">Openstaande sancties</div><div class="stat-value warn">${totaalOpen}</div></div>
+    <div class="stat-card"><div class="stat-label">Verwerkt</div><div class="stat-value" style="color:var(--accent3)">${totaalKlaar}</div></div>
+  `;
+
+  const container = document.getElementById('verwerkingContent');
+  const empty = document.getElementById('emptyVerwerking');
+  if (data.length === 0) { container.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  const typeKleur = { gedrag: 'badge-red', telaat: 'badge-blue', nablijven: 'badge-warn', materiaal: 'badge-green' };
+  const typeLabel = { gedrag: 'Gedrag', telaat: 'Te laat', nablijven: 'Nablijven', materiaal: 'Materiaal' };
+
+  container.innerHTML = data.map(s => {
+    const rijen = s.sancties.map(sanc => {
+      const safeKey = sanc.key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const safeNaam = s.naam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const chkId = 'chk_' + sanc.key.replace(/[^a-z0-9]/gi,'_');
+      const dateId = 'dt_' + sanc.key.replace(/[^a-z0-9]/gi,'_');
+      const doorTxt = sanc.verwerkt && sanc.door ? ` <span style="font-size:0.68rem;color:var(--muted)">door ${sanc.door}</span>` : '';
+      return `<div style="display:flex;align-items:center;gap:0.65rem;padding:0.45rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <input type="checkbox" id="${chkId}" ${sanc.verwerkt ? 'checked' : ''}
+          onchange="toggleSanctieVerwerkt('${safeKey}','${safeNaam}',this.checked,document.getElementById('${dateId}').value)">
+        <label for="${chkId}" style="flex:1;cursor:pointer;font-size:0.85rem;${sanc.verwerkt ? 'color:var(--muted);text-decoration:line-through' : ''}">
+          <span class="badge ${typeKleur[sanc.type]||'badge-gray'}" style="margin-right:0.35rem">${typeLabel[sanc.type]||sanc.type}</span>
+          ${sanc.label}${doorTxt}
+        </label>
+        <div style="display:flex;align-items:center;gap:0.35rem;flex-shrink:0">
+          <span style="font-size:0.72rem;color:var(--muted)">Datum:</span>
+          <input type="date" id="${dateId}" value="${sanc.datumVerwerkt||''}"
+            style="font-size:0.75rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text)"
+            onchange="if(document.getElementById('${chkId}').checked) toggleSanctieVerwerkt('${safeKey}','${safeNaam}',true,this.value)">
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:0.85rem">
+      <div style="display:flex;align-items:center;gap:0.65rem;padding:0.65rem 1rem;background:var(--bg);border-bottom:1px solid var(--border)">
+        <span style="font-weight:600;font-size:0.95rem">${s.naam}</span>
+        <span class="klas-tag">${s.klas}</span>
+        <span style="flex:1"></span>
+        ${s.sanctiesOpen > 0 ? `<span class="badge badge-warn">${s.sanctiesOpen} open</span>` : ''}
+        ${s.sanctiesKlaar > 0 ? `<span class="badge" style="background:var(--accent3);color:#fff">${s.sanctiesKlaar} verwerkt</span>` : ''}
+      </div>
+      <div style="padding:0.25rem 1rem 0.5rem">${rijen}</div>
+    </div>`;
+  }).join('');
+}
+
+function exportVerwerking() {
+  const rows = [['Naam','Klas','Type','Sanctie','Verwerkt','Datum verwerkt','Verwerkt door']];
+  computed.forEach(s => {
+    (s.sancties || []).forEach(sanc => {
+      rows.push([s.naam, s.klas, sanc.type, sanc.label, sanc.verwerkt ? 'Ja' : 'Nee', sanc.datumVerwerkt || '', sanc.door || '']);
+    });
+  });
+  downloadCSV(rows, 'verwerking_overzicht.csv');
+}
+// ════════════════════════════════════════════════
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getTodayNablijvenList(dateStr) {
+  const d = dateStr || document.getElementById('dayPicker')?.value || todayStr();
+  // Find students who have a te laat nota on this date AND it's a nablijven-triggering nota
+  return computed.filter(s => s.nablijvenDates.includes(d));
+}
+
+async function renderVandaag() {
+  const d = document.getElementById('dayPicker').value || todayStr();
+  const list = getTodayNablijvenList(d);
+  const container = document.getElementById('vandaagContent');
+
+  // Reload nablijven to get fresh verwerkt state
+  allNablijven = await dbAll('nablijven');
+  const nabMap = {};
+  for (const nb of allNablijven) nabMap[nb.id] = nb;
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="e-icon">✅</div><p>Geen leerlingen met nablijven op ${formatDate(d)}.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(s => {
+    const nbId = `${s.naam}||${d}`;
+    const isVerwerkt = nabMap[nbId]?.verwerkt;
+    const tNotaDiedag = s.tRows.find(r => r.datum === d);
+    const lesuur = tNotaDiedag?.subtype || '';
+    const aankomst = tNotaDiedag?.omschrijving || '';
+    const tIndex = s.nablijvenDates.indexOf(d) + 1;
+
+    return `<div class="nablijven-card" id="nbcard-${CSS.escape(nbId)}">
+      <div class="nablijven-card-header">
+        <div style="flex:1">
+          <div class="nablijven-name">${s.naam}</div>
+          <div class="nablijven-meta">${s.klas} · Te laat #${s.tCount} totaal · Nablijven incident #${tIndex}</div>
+        </div>
+        ${isVerwerkt
+          ? `<span class="badge badge-green">✓ Verwerkt</span>`
+          : `<span class="badge badge-warn">⏳ Nablijven</span>`}
+      </div>
+      <div class="nablijven-card-body">
+        <div class="nablijven-reason">
+          ${lesuur ? `<strong>${lesuur}</strong> · ` : ''}${aankomst ? `Aankomst: ${aankomst}` : ''}
+        </div>
+        <div class="nablijven-stats">
+          <span>Te laat totaal: <strong>${s.tCount}</strong></span>
+          <span>Nablijven open: <strong style="color:var(--warn)">${s.openCount}</strong></span>
+          <span>Verwerkt: <strong style="color:var(--accent3)">${s.verwerktCount}</strong></span>
+          ${s.gCount > 0 || s.tCount >= 4 || s.mCurr >= 4 ? `<span class="badge badge-red">sanctie actief</span>` : ''}
+        </div>
+        <div class="verwerkt-row">
+          <input type="checkbox" id="chk-${CSS.escape(nbId)}" ${isVerwerkt ? 'checked' : ''} onchange="toggleVerwerkt('${escapeJs(s.naam)}', '${d}', this.checked)">
+          <label for="chk-${CSS.escape(nbId)}" style="cursor:pointer">Nablijven verwerkt voor ${formatDate(d)}</label>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  updateBadges();
+}
+
+async function toggleVerwerkt(naam, datum, isVerwerkt) {
+  const id = `${naam}||${datum}`;
+  if (isVerwerkt) {
+    await dbPut('nablijven', { id, naam, datum, verwerkt: true, timestamp: new Date().toISOString() });
+    toast(`${naam} - nablijven ${formatDate(datum)} verwerkt`, 'success');
+  } else {
+    await dbDelete('nablijven', id);
+    toast(`${naam} - nablijven ${formatDate(datum)} teruggedraaid`);
+  }
+  allNablijven = await dbAll('nablijven');
+  recompute();
+  updateBadges();
+  // Update card appearance without full re-render
+  const card = document.getElementById(`nbcard-${CSS.escape(id)}`);
+  if (card) {
+    const badgeEl = card.querySelector('.badge');
+    if (isVerwerkt) {
+      badgeEl.className = 'badge badge-green';
+      badgeEl.textContent = '✓ Verwerkt';
+    } else {
+      badgeEl.className = 'badge badge-warn';
+      badgeEl.textContent = '⏳ Nablijven';
+    }
+  }
+}
+
+// ════════════════════════════════════════════════
+// OVERZICHT PANEL
+// ════════════════════════════════════════════════
+let ovSort = { col: 'status', dir: -1 };
+
+function renderOverzicht() {
+  const search = document.getElementById('searchOverzicht').value.toLowerCase();
+  const klas = document.getElementById('klasOverzicht').value;
+  const statusF = document.getElementById('statusOverzicht').value;
+
+  let data = computed.filter(s => {
+    if (search && !s.naam.toLowerCase().includes(search) && !s.klas.toLowerCase().includes(search)) return false;
+    if (klas && s.klas !== klas) return false;
+    if (statusF === 'strafstudie' && s.status !== 'strafstudie') return false;
+    if (statusF === 'bijna' && s.status !== 'bijna') return false;
+    if (statusF === 'ok' && s.status !== 'ok') return false;
+    return true;
+  });
+
+  const statusRank = s => s.status === 'strafstudie' ? 0 : s.status === 'bijna' ? 1 : 2;
+  data.sort((a, b) => {
+    const dir = ovSort.dir;
+    const col = ovSort.col;
+    if (col === 'naam') return dir * a.naam.localeCompare(b.naam);
+    if (col === 'klas') return dir * a.klas.localeCompare(b.klas);
+    if (col === 'materiaal') return dir * (a.mCurr - b.mCurr);
+    if (col === 'gedrag') return dir * (a.gCount - b.gCount);
+    if (col === 'telaat') return dir * (a.tCount - b.tCount);
+    if (col === 'studies') return dir * ((a.gUren + a.tStudies + a.mStudiesCurr) - (b.gUren + b.tStudies + b.mStudiesCurr));
+    if (col === 'status') return dir * (statusRank(a) - statusRank(b));
+    return 0;
+  });
+
+  const metActie = computed.filter(s => s.status === 'strafstudie').length;
+  const bijna = computed.filter(s => s.status === 'bijna').length;
+  document.getElementById('statsRowOverzicht').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Actie vereist</div><div class="stat-value red">${metActie}</div></div>
+    <div class="stat-card"><div class="stat-label">Bijna</div><div class="stat-value warn">${bijna}</div></div>
+    <div class="stat-card"><div class="stat-label">Totaal leerlingen</div><div class="stat-value">${computed.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Nota's totaal</div><div class="stat-value blue">${allNotas.length}</div></div>
+  `;
+
+  const tbody = document.getElementById('tbodyOverzicht');
+  const empty = document.getElementById('emptyOverzicht');
+
+  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = data.map(s => {
+    const mPct = Math.min(100, (s.mCurr / 8) * 100);
+    const tPct = Math.min(100, (s.tCount / 9) * 100);
+
+    const statusBadge = s.status === 'strafstudie'
+      ? `<span class="badge badge-red">ACTIE VEREIST</span>`
+      : s.status === 'bijna'
+        ? `<span class="badge badge-warn">BIJNA</span>`
+        : `<span class="badge badge-gray">OK</span>`;
+    const nabBadge = s.heeftNablijven
+      ? ` <span class="badge badge-blue">${s.openCount > 0 ? s.openCount + ' nablijven' : '✓'}</span>`
+      : '';
+
+    const mBadge = s.mSanctie ? `<div style="font-size:0.68rem;color:var(--accent)">${s.mSanctie}</div>` : '';
+    const tBadge = s.tSanctie ? `<div style="font-size:0.68rem;color:var(--accent2)">${s.tSanctie}</div>` : '';
+    const gBadge = s.gCount > 0 ? `<div style="font-size:0.68rem;color:var(--accent)">${s.gUren}u strafstudie</div>` : '';
+
+    return `<tr>
+      <td class="name-cell">${s.naam}</td>
+      <td><span class="klas-tag">${s.klas}</span></td>
+      <td class="num-cell">
+        <div class="${s.mCurr >= 4 ? 'num-red' : s.mCurr === 3 ? 'num-warn' : ''}">${s.mCurr}</div>
+        <div class="prog"><div class="prog-fill" style="width:${mPct}%;background:${s.mCurr>=4?'var(--accent)':s.mCurr===3?'var(--warn)':'var(--accent2)'}"></div></div>
+        ${mBadge}
+      </td>
+      <td class="num-cell">
+        <div class="${s.gCount > 0 ? 'num-red' : ''}">${s.gCount}</div>
+        ${gBadge}
+      </td>
+      <td class="num-cell">
+        <div class="${s.tCount >= 9 ? 'num-red' : s.tCount >= 4 ? 'num-warn' : ''}">${s.tCount}</div>
+        <div class="prog"><div class="prog-fill" style="width:${tPct}%;background:${s.tCount>=9?'var(--accent)':s.tCount>=4?'var(--warn)':'var(--accent2)'}"></div></div>
+        ${tBadge}
+      </td>
+      <td>${statusBadge}${nabBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function overzichtSort(col) {
+  if (ovSort.col === col) ovSort.dir *= -1;
+  else { ovSort.col = col; ovSort.dir = -1; }
+  renderOverzicht();
+}
+
+// ════════════════════════════════════════════════
+// TE LAAT PANEL
+// ════════════════════════════════════════════════
+let tlSort = { col: 'telaat', dir: -1 };
+
+function renderTeLaat() {
+  const search = document.getElementById('searchTeLaat').value.toLowerCase();
+  const klas = document.getElementById('klasTeLaat').value;
+  const filter = document.getElementById('nablijvenFilter').value;
+
+  let data = computed.filter(s => s.tCount > 0).filter(s => {
+    if (search && !s.naam.toLowerCase().includes(search) && !s.klas.toLowerCase().includes(search)) return false;
+    if (klas && s.klas !== klas) return false;
+    if (filter === 'nablijven' && !s.heeftNablijven) return false;
+    if (filter === 'open' && s.openCount === 0) return false;
+    if (filter === 'verwerkt' && s.openCount > 0) return false;
+    return true;
+  });
+
+  data.sort((a, b) => {
+    const dir = tlSort.dir;
+    const col = tlSort.col;
+    if (col === 'naam') return dir * a.naam.localeCompare(b.naam);
+    if (col === 'klas') return dir * a.klas.localeCompare(b.klas);
+    if (col === 'telaat') return dir * (a.tCount - b.tCount);
+    if (col === 'studies') return dir * (a.tStudies - b.tStudies);
+    return 0;
+  });
+
+  const heeftNablijven = computed.filter(s => s.heeftNablijven).length;
+  const openNablijven = computed.reduce((acc, s) => acc + s.openCount, 0);
+  const metLeerstudie = computed.filter(s => s.tCount >= 4).length;
+  document.getElementById('statsRowTeLaat').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Met leerstudie</div><div class="stat-value warn">${metLeerstudie}</div></div>
+    <div class="stat-card"><div class="stat-label">Dag zelf nablijven</div><div class="stat-value red">${heeftNablijven}</div></div>
+    <div class="stat-card"><div class="stat-label">Open nablijven</div><div class="stat-value red">${openNablijven}</div></div>
+    <div class="stat-card"><div class="stat-label">Regel</div><div class="stat-value" style="font-size:0.75rem;line-height:1.3">4=1u · 8=2u · 9+=nablijven</div></div>
+  `;
+
+  const tbody = document.getElementById('tbodyTeLaat');
+  const empty = document.getElementById('emptyTeLaat');
+  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = data.map(s => {
+    const sanctieBadge = s.tCount >= 9
+      ? `<span class="badge badge-red">2u leerstudie + nablijven</span>`
+      : s.tCount >= 8
+        ? `<span class="badge badge-red">2u leerstudie</span>`
+        : s.tCount >= 4
+          ? `<span class="badge badge-warn">1u leerstudie</span>`
+          : `<span class="badge badge-gray">Geen</span>`;
+    const nablijvenBadge = s.heeftNablijven
+      ? `<span class="badge badge-red">Ja (vanaf nota 9)</span>`
+      : `<span class="badge badge-gray">Nee</span>`;
+    const openBadge = s.openCount > 0
+      ? `<span class="badge badge-red">${s.openCount}</span>`
+      : `<span class="badge badge-gray">0</span>`;
+    const verwerktBadge = `<span class="badge badge-green">${s.verwerktCount}</span>`;
+
+    return `<tr>
+      <td class="name-cell">${s.naam}</td>
+      <td><span class="klas-tag">${s.klas}</span></td>
+      <td class="num-cell ${s.tCount >= 9 ? 'num-red' : s.tCount >= 4 ? 'num-warn' : ''}">${s.tCount}</td>
+      <td style="text-align:center">${sanctieBadge}</td>
+      <td style="text-align:center">${nablijvenBadge}</td>
+      <td style="text-align:center">${verwerktBadge}</td>
+      <td style="text-align:center">${openBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function teLaatSort(col) {
+  if (tlSort.col === col) tlSort.dir *= -1;
+  else { tlSort.col = col; tlSort.dir = -1; }
+  renderTeLaat();
+}
+
+
+// ════════════════════════════════════════════════
+// GEDRAG PANEL
+// ════════════════════════════════════════════════
+let gedragSortState = { col: 'count', dir: -1 };
+
+function renderGedrag() {
+  const search = document.getElementById('searchGedrag').value.toLowerCase();
+  const klas = document.getElementById('klasGedrag').value;
+  const vak = document.getElementById('vakGedrag').value;
+  const statusF = document.getElementById('statusGedrag').value;
+
+  // Populate vak filter
+  const alleVakken = [...new Set(allNotas.filter(n => n.type === 'gedrag' && n.vak).map(n => n.vak))].sort();
+  const vakSel = document.getElementById('vakGedrag');
+  const curVak = vakSel.value;
+  vakSel.innerHTML = '<option value="">Alle vakken</option>' + alleVakken.map(v => `<option value="${v}"${v===curVak?' selected':''}>${v}</option>`).join('');
+
+  let data = computed.filter(s => s.gCount > 0).filter(s => {
+    if (search && !s.naam.toLowerCase().includes(search) && !s.klas.toLowerCase().includes(search)) return false;
+    if (klas && s.klas !== klas) return false;
+    if (statusF === 'studie' && s.gCount === 0) return false;
+    if (statusF === 'ok' && s.gCount > 0) return false;
+    return true;
+  });
+
+  if (vak) {
+    const studentsWithVak = new Set(allNotas.filter(n => n.type === 'gedrag' && n.vak === vak).map(n => n.naam));
+    data = data.filter(s => studentsWithVak.has(s.naam));
+  }
+
+  data.sort((a, b) => {
+    const dir = gedragSortState.dir;
+    const col = gedragSortState.col;
+    if (col === 'naam') return dir * a.naam.localeCompare(b.naam);
+    if (col === 'klas') return dir * a.klas.localeCompare(b.klas);
+    if (col === 'count') return dir * (a.gCount - b.gCount);
+    if (col === 'studies') return dir * (a.gUren - b.gUren);
+    if (col === 'status') return dir * (a.gCount - b.gCount);
+    return 0;
+  });
+
+  const totalGedragNotas = allNotas.filter(n => n.type === 'gedrag').length;
+  const metGedrag = computed.filter(s => s.gCount > 0).length;
+  const totalUren = computed.reduce((acc, s) => acc + s.gUren, 0);
+  document.getElementById('statsRowGedrag').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Leerlingen met gedrag</div><div class="stat-value red">${metGedrag}</div></div>
+    <div class="stat-card"><div class="stat-label">Totaal uren strafstudie</div><div class="stat-value warn">${totalUren}u</div></div>
+    <div class="stat-card"><div class="stat-label">Gedragsnota's totaal</div><div class="stat-value blue">${totalGedragNotas}</div></div>
+    <div class="stat-card"><div class="stat-label">Regel</div><div class="stat-value" style="font-size:0.9rem">Elke nota = 2u</div></div>
+  `;
+
+  const tbody = document.getElementById('tbodyGedrag');
+  const empty = document.getElementById('emptyGedrag');
+  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  const lastNota = {};
+  allNotas.filter(n => n.type === 'gedrag').forEach(n => {
+    if (!lastNota[n.naam] || n.datum > lastNota[n.naam].datum) lastNota[n.naam] = n;
+  });
+
+  tbody.innerHTML = data.map(s => {
+    const statusBadge = `<span class="badge badge-red">${s.gUren}u strafstudie</span>`;
+    const last = lastNota[s.naam];
+    const lastInfo = last ? `<div style="font-size:0.75rem;color:var(--muted)">${formatDate(last.datum)} · ${last.vak || '—'}</div><div style="font-size:0.72rem;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last.titel}</div>` : '—';
+    return `<tr>
+      <td class="name-cell">${s.naam}</td>
+      <td><span class="klas-tag">${s.klas}</span></td>
+      <td class="num-cell num-red">${s.gCount}</td>
+      <td class="num-cell num-red">${s.gUren}u</td>
+      <td>${lastInfo}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function gedragSort(col) {
+  if (gedragSortState.col === col) gedragSortState.dir *= -1;
+  else { gedragSortState.col = col; gedragSortState.dir = -1; }
+  renderGedrag();
+}
+
+function exportGedrag() {
+  const rows = [['Naam','Klas','Gedrag notas','Uren strafstudie','Status']];
+  computed.filter(s => s.gCount > 0).forEach(s => {
+    rows.push([s.naam, s.klas, s.gCount, s.gUren + 'u', s.gCount + ' x 2u strafstudie']);
+  });
+  downloadCSV(rows, 'gedrag_overzicht.csv');
+}
+
+// ════════════════════════════════════════════════
+// MATERIAAL PANEL
+// ════════════════════════════════════════════════
+let materiaalSortState = { col: 'count', dir: -1 };
+
+function renderMateriaal() {
+  const search = document.getElementById('searchMateriaal').value.toLowerCase();
+  const klas = document.getElementById('klasMateriaal').value;
+  const subtype = document.getElementById('subtypeMateriaal').value;
+  const trimFilter = document.getElementById('halvejaarMateriaal').value;
+  const statusF = document.getElementById('statusMateriaal').value;
+
+  // Populate subtype filter
+  const alleSubtypes = [...new Set(
+    allNotas.filter(n => n.type === 'materiaal' && n.subtype).flatMap(n => n.subtype.split(',').map(s => s.trim()))
+  )].filter(Boolean).sort();
+  const subtypeSel = document.getElementById('subtypeMateriaal');
+  const curSub = subtypeSel.value;
+  subtypeSel.innerHTML = '<option value="">Alle types</option>' + alleSubtypes.map(v => `<option value="${v}"${v===curSub?' selected':''}>${v}</option>`).join('');
+
+  const currTrim = getCurrentTrimester();
+
+  let data = computed.map(s => {
+    let mCount, mStudiesF;
+    if (trimFilter === 'trim1') { mCount = s.mTrim1; mStudiesF = Math.floor(s.mTrim1 / 4); }
+    else if (trimFilter === 'trim2') { mCount = s.mTrim2; mStudiesF = Math.floor(s.mTrim2 / 4); }
+    else if (trimFilter === 'trim3') { mCount = s.mTrim3; mStudiesF = Math.floor(s.mTrim3 / 4); }
+    else { mCount = s.mCurr; mStudiesF = Math.floor(s.mCurr / 4); } // current
+    return { ...s, _mCount: mCount, _mStudies: mStudiesF };
+  }).filter(s => s._mCount > 0);
+
+  data = data.filter(s => {
+    if (search && !s.naam.toLowerCase().includes(search) && !s.klas.toLowerCase().includes(search)) return false;
+    if (klas && s.klas !== klas) return false;
+    if (statusF === 'studie' && s._mStudies === 0) return false;
+    if (statusF === 'bijna' && !(s._mStudies === 0 && s._mCount === 3)) return false;
+    if (statusF === 'ok' && (s._mStudies > 0 || s._mCount === 3)) return false;
+    return true;
+  });
+
+  if (subtype) {
+    const studentsWithSubtype = new Set(
+      allNotas.filter(n => n.type === 'materiaal' && n.subtype && n.subtype.includes(subtype)).map(n => n.naam)
+    );
+    data = data.filter(s => studentsWithSubtype.has(s.naam));
+  }
+
+  data.sort((a, b) => {
+    const dir = materiaalSortState.dir;
+    const col = materiaalSortState.col;
+    if (col === 'naam') return dir * a.naam.localeCompare(b.naam);
+    if (col === 'klas') return dir * a.klas.localeCompare(b.klas);
+    if (col === 'count') return dir * (a._mCount - b._mCount);
+    if (col === 'all') return dir * (a.mAll - b.mAll);
+    if (col === 'studies') return dir * (a._mStudies - b._mStudies);
+    if (col === 'status') return dir * ((a._mStudies - b._mStudies) || (a._mCount - b._mCount));
+    return 0;
+  });
+
+  const totalMNotas = allNotas.filter(n => n.type === 'materiaal').length;
+  const metStudie = data.filter(s => s._mStudies > 0).length;
+  const bijna = data.filter(s => s._mStudies === 0 && s._mCount === 3).length;
+  const trimLabels = { current: `Trim ${currTrim} (huidig)`, trim1: 'Trimester 1 (sep)', trim2: 'Trimester 2 (jan)', trim3: 'Trimester 3 (apr)' };
+  document.getElementById('statsRowMateriaal').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Leerstudie materiaal</div><div class="stat-value red">${metStudie}</div></div>
+    <div class="stat-card"><div class="stat-label">Bijna (nog 1)</div><div class="stat-value warn">${bijna}</div></div>
+    <div class="stat-card"><div class="stat-label">Nota's totaal</div><div class="stat-value blue">${totalMNotas}</div></div>
+    <div class="stat-card"><div class="stat-label">Periode</div><div class="stat-value" style="font-size:0.85rem">${trimLabels[trimFilter]||trimLabels.current}</div></div>
+  `;
+
+  const tbody = document.getElementById('tbodyMateriaal');
+  const empty = document.getElementById('emptyMateriaal');
+  if (data.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  function topSubtype(naam) {
+    const rows = allNotas.filter(n => n.type === 'materiaal' && n.naam === naam && n.subtype);
+    if (!rows.length) return '—';
+    const counts = {};
+    rows.forEach(r => r.subtype.split(',').forEach(s => { const t = s.trim(); counts[t] = (counts[t]||0)+1; }));
+    return Object.entries(counts).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
+  }
+
+  tbody.innerHTML = data.map(s => {
+    const sanctie = s._mCount >= 8 ? '2u leerstudie' : s._mCount >= 4 ? '1u leerstudie' : '';
+    const statusBadge = s._mStudies > 0
+      ? `<span class="badge badge-red">${sanctie}</span>`
+      : s._mCount === 3
+        ? `<span class="badge badge-warn">BIJNA (nog 1)</span>`
+        : `<span class="badge badge-gray">OK</span>`;
+    const color = s._mStudies > 0 ? 'var(--accent)' : s._mCount === 3 ? 'var(--warn)' : 'var(--accent2)';
+    const pct = Math.min(100, (s._mCount / 8) * 100);
+    return `<tr>
+      <td class="name-cell">${s.naam}</td>
+      <td><span class="klas-tag">${s.klas}</span></td>
+      <td class="num-cell">
+        <div style="color:${color};font-family:var(--mono);font-weight:600">${s._mCount}</div>
+        <div class="prog"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+      </td>
+      <td class="num-cell num-muted">${s.mTrim1} / ${s.mTrim2} / ${s.mTrim3}</td>
+      <td class="num-cell num-muted">${s.mAll}</td>
+      <td style="font-size:0.75rem;color:var(--muted);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${topSubtype(s.naam)}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function materiaalSort(col) {
+  if (materiaalSortState.col === col) materiaalSortState.dir *= -1;
+  else { materiaalSortState.col = col; materiaalSortState.dir = -1; }
+  renderMateriaal();
+}
+
+function exportMateriaal() {
+  const rows = [['Naam','Klas','Notas huidig trim','Trim 1','Trim 2','Trim 3','Totaal jaar','Sanctie']];
+  computed.filter(s => s.mAll > 0).forEach(s => {
+    rows.push([s.naam, s.klas, s.mCurr, s.mTrim1, s.mTrim2, s.mTrim3, s.mAll, s.mSanctie || 'Geen']);
+  });
+  downloadCSV(rows, 'materiaal_overzicht.csv');
+}
+
+// ════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════
+const panels = ['vandaag', 'overzicht', 'telaat', 'gedrag', 'materiaal', 'verwerking', 'import', 'instellingen'];
+const panelTitles = { vandaag: 'Vandaag', overzicht: 'Overzicht', telaat: 'Te laat', gedrag: 'Gedrag', materiaal: 'Materiaal', verwerking: 'Verwerking', import: 'Import', instellingen: 'Instellingen' };
+
+function showPanel(name) {
+  panels.forEach(p => {
+    document.getElementById(`panel-${p}`).classList.toggle('active', p === name);
+  });
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase().startsWith(panelTitles[name]?.slice(0,5).toLowerCase() || ''));
+  });
+  // Fix active nav
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navItems = document.querySelectorAll('.nav-item');
+  const idx = panels.indexOf(name);
+  if (navItems[idx]) navItems[idx].classList.add('active');
+
+  document.getElementById('pageTitle').textContent = panelTitles[name] || name;
+  document.getElementById('pageSubtitle').textContent = '';
+
+  if (name === 'vandaag') renderVandaag();
+  if (name === 'overzicht') renderOverzicht();
+  if (name === 'telaat') renderTeLaat();
+  if (name === 'gedrag') renderGedrag();
+  if (name === 'materiaal') renderMateriaal();
+  if (name === 'verwerking') renderVerwerking();
+}
+
+// ════════════════════════════════════════════════
+// KLAS FILTERS
+// ════════════════════════════════════════════════
+function populateKlasFilters() {
+  const klassen = [...new Set(computed.map(s => s.klas).filter(Boolean))].sort();
+  ['klasOverzicht', 'klasTeLaat', 'klasGedrag', 'klasMateriaal', 'klasVerwerking'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Alle klassen</option>' + klassen.map(k => `<option value="${k}"${k===cur?' selected':''}>${k}</option>`).join('');
+  });
+}
+
+// ════════════════════════════════════════════════
+// DB STATUS
+// ════════════════════════════════════════════════
+async function updateDBStatus() {
+  const dot = document.getElementById('dbDot');
+  const txt = document.getElementById('dbStatusText');
+  const cnt = document.getElementById('dbRecordCount');
+  const n = allNotas.length;
+  if (n > 0) {
+    dot.className = 'db-dot';
+    txt.textContent = 'Database actief';
+    cnt.textContent = `${n} nota's · ${computed.length} leerlingen`;
+  } else {
+    dot.className = 'db-dot empty';
+    txt.textContent = 'Geen data';
+    cnt.textContent = 'Importeer een Excel bestand';
+  }
+}
+
+// ════════════════════════════════════════════════
+// EXPORTS
+// ════════════════════════════════════════════════
+function exportNablijvenDay() {
+  const d = document.getElementById('dayPicker').value || todayStr();
+  const list = getTodayNablijvenList(d);
+  const nabMap = {};
+  for (const nb of allNablijven) nabMap[nb.id] = nb;
+  const rows = [['Naam','Klas','Te laat totaal','Nablijven open','Verwerkt','Lesuur','Aankomst']];
+  list.forEach(s => {
+    const tRow = s.tRows.find(r => r.datum === d);
+    const nbId = `${s.naam}||${d}`;
+    rows.push([s.naam, s.klas, s.tCount, s.openCount, nabMap[nbId]?.verwerkt ? 'Ja' : 'Nee', tRow?.subtype||'', tRow?.omschrijving||'']);
+  });
+  downloadCSV(rows, `nablijven_${d}.csv`);
+}
+
+function exportOverzicht() {
+  const rows = [['Naam','Klas','Materiaal huidig trim','Gedrag notas','Gedrag uren','Te laat','Te laat sanctie','Materiaal sanctie','Nablijven','Open nablijven','Status']];
+  computed.forEach(s => rows.push([s.naam,s.klas,s.mCurr,s.gCount,s.gUren+'u',s.tCount,s.tSanctie||'Geen',s.mSanctie||'Geen',s.heeftNablijven?'Ja':'Nee',s.openCount,s.status]));
+  downloadCSV(rows, 'strafstudie_overzicht.csv');
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = filename;
+  a.click();
+}
+
+// ════════════════════════════════════════════════
+// DANGER
+// ════════════════════════════════════════════════
+async function confirmClearDB() {
+  if (!confirm('Weet je zeker dat je alle data wil wissen? Dit kan niet ongedaan gemaakt worden.')) return;
+  await dbClear('notas');
+  await dbClear('nablijven');
+  allNotas = []; allNablijven = []; computed = [];
+  recompute();
+  updateDBStatus();
+  refreshAll();
+  toast('Database gewist', 'error');
+}
+
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+function formatDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function escapeJs(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function toast(msg, type) {
+  const tc = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast${type ? ' ' + type : ''}`;
+  t.textContent = msg;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function refreshAll() {
+  recompute();
+  populateKlasFilters();
+  updateDBStatus();
+  const active = document.querySelector('.panel.active');
+  if (active?.id === 'panel-overzicht') renderOverzicht();
+  if (active?.id === 'panel-telaat') renderTeLaat();
+  if (active?.id === 'panel-vandaag') renderVandaag();
+  if (active?.id === 'panel-gedrag') renderGedrag();
+  if (active?.id === 'panel-materiaal') renderMateriaal();
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+async function init() {
+  await openDB();
+  await loadSettings();
+  allNotas = await dbAll('notas');
+  allNablijven = await dbAll('nablijven');
+  try { allVerwerkingen = await dbAll('verwerkingen'); } catch(e) { allVerwerkingen = []; }
+  recompute();
+  populateKlasFilters();
+  updateDBStatus();
+
+  document.getElementById('dayPicker').value = todayStr();
+  renderVandaag();
+  initUploadListeners();
+}
+
+async function appStart() {
+  // Handle redirect first (before any rendering)
+  const loggedIn = await initAuth();
+  if (loggedIn) {
+    await init();
+  }
+  // If not logged in, overlay stays visible — init() called after successful login
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initUploadListeners();
+});
+
+appStart();
+</script>
+</body>
+</html>
