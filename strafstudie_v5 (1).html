@@ -21120,19 +21120,26 @@ function downloadCSV(rows, filename) {
 async function confirmClearDB() { hardResetDB(); }
 
 async function hardResetDB() {
-  showConfirm(
-    'Database volledig wissen?',
-    'Dit verwijdert ALLE data permanent. Dit kan niet ongedaan gemaakt worden.',
-    async () => {
+  let _confirmCallback = null;
 
-      // Close current DB connection
-      if (db) {
-        try {
-          db.close();
-        } catch (e) {
-          console.error(e);
-        }
-      }
+function showConfirm(title, msg, onOk) {
+  _confirmCallback = onOk;
+
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmModal').style.display = 'flex';
+
+  document.getElementById('confirmOkBtn').onclick = () => {
+    const cb = _confirmCallback; // preserve callback
+    closeConfirm();
+    if (cb) cb();
+  };
+}
+
+function closeConfirm() {
+  document.getElementById('confirmModal').style.display = 'none';
+  _confirmCallback = null;
+}
 
       // Small delay so IndexedDB can fully release lock
       await new Promise(r => setTimeout(r, 500));
