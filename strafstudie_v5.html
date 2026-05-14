@@ -19092,17 +19092,7 @@ async function msLogin() {
   hideLoginError();
   try {
     const instance = await getMsal();
-    try {
-      const resp = await instance.loginPopup({ scopes: ['User.Read'] });
-      setUser(resp.account);
-      await init();
-    } catch (popupErr) {
-      if (popupErr.errorCode === 'popup_window_error' || popupErr.errorCode === 'empty_window_error') {
-        await instance.loginRedirect({ scopes: ['User.Read'] });
-      } else {
-        throw popupErr;
-      }
-    }
+    await instance.loginRedirect({ scopes: ['User.Read'] });
   } catch (e) {
     showLoginError('Aanmelding mislukt. Controleer of je een bevoegde medewerker bent. (' + (e.message || e) + ')');
     btn.disabled = false;
@@ -19112,9 +19102,7 @@ async function msLogin() {
 
 async function msLogout() {
   const instance = await getMsal();
-  instance.logoutPopup({ account: currentUser?.account }).catch(() => {
-    instance.logoutRedirect({ account: currentUser?.account });
-  });
+  instance.logoutRedirect({ account: currentUser?.account });
 }
 
 function showLoginError(msg) {
