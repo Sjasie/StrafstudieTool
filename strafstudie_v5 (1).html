@@ -21119,18 +21119,44 @@ function downloadCSV(rows, filename) {
 // ════════════════════════════════════════════════
 async function confirmClearDB() { hardResetDB(); }
 
-function hardResetDB() {
+async function hardResetDB() {
   showConfirm(
     'Database volledig wissen?',
     'Dit verwijdert ALLE data permanent. Dit kan niet ongedaan gemaakt worden.',
-    () => {
-      try { if (db) db.close(); } catch(e) {}
-      setTimeout(() => {
-        const req = indexedDB.deleteDatabase('StrafstudieTool');
-        req.onsuccess = () => { toast('Database gewist — herladen...', 'error'); setTimeout(() => location.reload(), 800); };
-        req.onerror = (e) => { toast('Fout: ' + (e.target?.error?.message || 'onbekend'), 'error'); };
-        req.onblocked = () => { toast('Geblokkeerd — sluit andere tabbladen en probeer opnieuw', 'error'); };
-      }, 250);
+    async () => {
+
+      // Close current DB connection
+      if (db) {
+        try {
+          db.close();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // Small delay so IndexedDB can fully release lock
+      await new Promise(r => setTimeout(r, 500));
+
+      const req = indexedDB.deleteDatabase(DB_NAME);
+
+      req.onsuccess = () => {
+        console.log('DB deleted');
+        toast('Database gewist — herladen...', 'success');
+
+        setTimeout(() => {
+          location.reload();
+        }, 800);
+      };
+
+      req.onerror = (e) => {
+        console.error(e);
+        toast('Database wissen mislukt', 'error');
+      };
+
+      req.onblocked = () => {
+        console.warn('Delete blocked');
+        toast('Sluit andere tabbladen van deze app', 'error');
+      };
     }
   );
 }
