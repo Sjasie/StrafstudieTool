@@ -21120,50 +21120,49 @@ function downloadCSV(rows, filename) {
 async function confirmClearDB() { hardResetDB(); }
 
 async function hardResetDB() {
-  let _confirmCallback = null;
 
-function showConfirm(title, msg, onOk) {
-  _confirmCallback = onOk;
+  showConfirm(
+    'Database volledig wissen?',
+    'Dit verwijdert ALLE data permanent. Dit kan niet ongedaan gemaakt worden.',
+    async () => {
 
-  document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmModal').style.display = 'flex';
+      try {
 
-  document.getElementById('confirmOkBtn').onclick = () => {
-    const cb = _confirmCallback; // preserve callback
-    closeConfirm();
-    if (cb) cb();
-  };
-}
+        // Close open DB connection
+        if (window.db) {
+          db.close();
+          console.log('DB connection closed');
+        }
 
-function closeConfirm() {
-  document.getElementById('confirmModal').style.display = 'none';
-  _confirmCallback = null;
-}
+        // Give IndexedDB time to release locks
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Small delay so IndexedDB can fully release lock
-      await new Promise(r => setTimeout(r, 500));
+        const req = indexedDB.deleteDatabase('StrafstudieTool');
 
-      const req = indexedDB.deleteDatabase(DB_NAME);
+        req.onsuccess = () => {
+          console.log('Database deleted successfully');
+          toast('Database gewist', 'success');
 
-      req.onsuccess = () => {
-        console.log('DB deleted');
-        toast('Database gewist — herladen...', 'success');
+          setTimeout(() => {
+            location.reload();
+          }, 800);
+        };
 
-        setTimeout(() => {
-          location.reload();
-        }, 800);
-      };
+        req.onerror = (event) => {
+          console.error('Delete failed:', event);
+          toast('Database wissen mislukt', 'error');
+        };
 
-      req.onerror = (e) => {
-        console.error(e);
-        toast('Database wissen mislukt', 'error');
-      };
+        req.onblocked = () => {
+          console.warn('Delete blocked');
+          toast('Sluit andere tabbladen van deze app', 'error');
+        };
 
-      req.onblocked = () => {
-        console.warn('Delete blocked');
-        toast('Sluit andere tabbladen van deze app', 'error');
-      };
+      } catch (err) {
+        console.error(err);
+        toast('Fout bij verwijderen database', 'error');
+      }
+
     }
   );
 }
