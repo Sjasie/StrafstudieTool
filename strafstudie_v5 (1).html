@@ -19105,7 +19105,11 @@ function showConfirm(title, msg, onOk) {
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMsg').textContent = msg;
   document.getElementById('confirmModal').style.display = 'flex';
-  document.getElementById('confirmOkBtn').onclick = () => { closeConfirm(); if (_confirmCallback) _confirmCallback(); };
+  document.getElementById('confirmOkBtn').onclick = () => {
+  const cb = _confirmCallback;
+  closeConfirm();
+  if (cb) cb();
+};
 }
 function closeConfirm() {
   document.getElementById('confirmModal').style.display = 'none';
